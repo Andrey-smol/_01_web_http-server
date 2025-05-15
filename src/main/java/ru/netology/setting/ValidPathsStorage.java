@@ -5,9 +5,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class ValidPathsStorage implements IValidPaths{
+public class ValidPathsStorage implements IValidPaths {
     private static final String PATH_DIRECTORY = "public";
-    private final List<String> listPaths = new CopyOnWriteArrayList<> (List.of(
+    private final List<String> listPaths = new CopyOnWriteArrayList<>(List.of(
             "/index.html",
             "/spring.svg",
             "/spring.png",
@@ -19,12 +19,15 @@ public class ValidPathsStorage implements IValidPaths{
             "/classic.html",
             "/events.html",
             "/events.js"));
-    private static class ValidPathsStorageHead{
+
+    private static class ValidPathsStorageHead {
         private static final ValidPathsStorage validPathsStorage = new ValidPathsStorage();
     }
-    private ValidPathsStorage(){}
 
-    public static ValidPathsStorage getInstance(){
+    private ValidPathsStorage() {
+    }
+
+    public static ValidPathsStorage getInstance() {
         return ValidPathsStorageHead.validPathsStorage;
     }
 
@@ -34,8 +37,8 @@ public class ValidPathsStorage implements IValidPaths{
     }
 
     @Override
-    public Optional<Path> getPathFile(String path){
-        if(listPaths.contains(path)){
+    public Optional<Path> getPathFile(String path) {
+        if (listPaths.contains(path)) {
             return Optional.of(Path.of(".", PATH_DIRECTORY, path));
         }
         return Optional.empty();

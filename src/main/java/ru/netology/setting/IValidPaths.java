@@ -6,5 +6,6 @@ import java.util.Optional;
 
 public interface IValidPaths {
     List<String> getValidPaths();
+
     Optional<Path> getPathFile(String path);
 }

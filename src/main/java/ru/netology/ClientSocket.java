@@ -5,10 +5,7 @@ import ru.netology.setting.IValidPaths;
 
 import java.io.*;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 public class ClientSocket implements Runnable {
@@ -85,14 +82,16 @@ public class ClientSocket implements Runnable {
         } catch (IOException ignored) {
         }
     }
-    private String getResponseHead(String mimeType, long lenBody){
+
+    private String getResponseHead(String mimeType, long lenBody) {
         return "HTTP/1.1 200 OK\r\n" +
                 "Content-Type: " + mimeType + "\r\n" +
                 "Content-Length: " + lenBody + "\r\n" +
                 "Connection: close\r\n" +
                 "\r\n";
     }
-    private String getResponseError404(){
+
+    private String getResponseError404() {
         return "HTTP/1.1 404 Not Found\r\n" +
                 "Content-Length: 0\r\n" +
                 "Connection: close\r\n" +

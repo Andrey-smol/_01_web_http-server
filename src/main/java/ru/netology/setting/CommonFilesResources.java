@@ -9,33 +9,38 @@ import java.util.OptionalLong;
 import java.util.concurrent.*;
 
 public class CommonFilesResources {
-    private ExecutorService pool =  Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() + 1);
-    private static class FileStorageHead{
+    private final ExecutorService pool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() + 1);
+
+    private static class FileStorageHead {
         private static final CommonFilesResources fileStorage = new CommonFilesResources();
     }
-    private CommonFilesResources(){}
-    public static CommonFilesResources getInstance(){
+
+    private CommonFilesResources() {
+    }
+
+    public static CommonFilesResources getInstance() {
         return FileStorageHead.fileStorage;
     }
 
     public synchronized OptionalLong getLengthFile(Path path) throws IOException {
-        if(Files.exists(path)){
+        if (Files.exists(path)) {
             return OptionalLong.of(Files.size(path));
         }
         return OptionalLong.empty();
     }
+
     public synchronized Optional<String> getTypeFile(Path path) throws IOException {
-        if(Files.exists(path)) {
+        if (Files.exists(path)) {
             return Optional.of(Files.probeContentType(path));
         }
         return Optional.empty();
     }
 
     public synchronized Future<String> getContentFile(Path path) throws IOException {
-        return pool.submit(()->Files.readString(path));
+        return pool.submit(() -> Files.readString(path));
     }
 
     public synchronized Future<?> copyFileIntoOutputStream(Path path, OutputStream out) throws IOException {
-        return pool.submit(()->Files.copy(path, out));
+        return pool.submit(() -> Files.copy(path, out));
     }
 }

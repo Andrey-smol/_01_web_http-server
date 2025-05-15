@@ -16,7 +16,7 @@ public class Server {
             }
         } catch (IOException e) {
             e.printStackTrace();
-        }finally {
+        } finally {
             poolThread.setInterrupt();
         }
     }
