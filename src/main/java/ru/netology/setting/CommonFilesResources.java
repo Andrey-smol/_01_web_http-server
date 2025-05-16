@@ -36,11 +36,11 @@ public class CommonFilesResources {
         return Optional.empty();
     }
 
-    public synchronized Future<String> getContentFile(Path path) throws IOException {
+    public synchronized Future<String> getContentFile(Path path) {
         return pool.submit(() -> Files.readString(path));
     }
 
-    public synchronized Future<?> copyFileIntoOutputStream(Path path, OutputStream out) throws IOException {
+    public synchronized Future<?> copyFileIntoOutputStream(Path path, OutputStream out) {
         return pool.submit(() -> Files.copy(path, out));
     }
 }
