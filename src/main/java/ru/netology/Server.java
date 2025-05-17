@@ -29,7 +29,7 @@ public class Server {
             while (true) {
                 poolThread.getPool().submit(new ClientSocket(serverSocket.accept(), server));
             }
-        } catch (IOException e) {
+        } catch (IOException e) {gi
             e.printStackTrace();
         } finally {
             poolThread.setInterrupt();
