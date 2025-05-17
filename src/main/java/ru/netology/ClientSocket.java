@@ -20,7 +20,6 @@ public class ClientSocket implements Runnable {
         in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
         out = new BufferedOutputStream(clientSocket.getOutputStream());
     }
-
     @Override
     public void run() {
         try {
