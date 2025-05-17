@@ -10,24 +10,25 @@ public class ClientSocket implements Runnable {
 
     private final Socket clientSocket;
     private final Server server;
-    private final BufferedReader in;
+    private final BufferedInputStream in;
     private final BufferedOutputStream out;
 
     public ClientSocket(Socket socket, Server server) throws IOException {
 
         this.server = server;
         this.clientSocket = socket;
-        in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        in = new BufferedInputStream(clientSocket.getInputStream());
         out = new BufferedOutputStream(clientSocket.getOutputStream());
     }
     @Override
     public void run() {
         try {
-            final var requestLines =  in.readLine();
             Request request = new Request();
-            if(request.parsingRequestLine(requestLines)){
+            if(request.parseRequest(in)){
                 Map<String, IHandler> map = server.getHandlersByKey(request.getMethod().get());
                 map.get(request.getMessage()).handle(request, out);
+            }else {
+                badRequest(out);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -47,6 +48,15 @@ public class ClientSocket implements Runnable {
             }
         } catch (IOException ignored) {
         }
+    }
+    private void badRequest(BufferedOutputStream out) throws IOException {
+        out.write((
+                "HTTP/1.1 400 Bad Request\r\n" +
+                        "Content-Length: 0\r\n" +
+                        "Connection: close\r\n" +
+                        "\r\n"
+        ).getBytes());
+        out.flush();
     }
 
 }
