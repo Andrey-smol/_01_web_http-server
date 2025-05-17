@@ -3,6 +3,7 @@ package ru.netology;
 
 import java.io.*;
 import java.net.Socket;
+import java.net.URISyntaxException;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -20,19 +21,20 @@ public class ClientSocket implements Runnable {
         in = new BufferedInputStream(clientSocket.getInputStream());
         out = new BufferedOutputStream(clientSocket.getOutputStream());
     }
+
     @Override
     public void run() {
         try {
             Request request = new Request();
-            if(request.parseRequest(in)){
+            if (request.parseRequest(in)) {
                 Map<String, IHandler> map = server.getHandlersByKey(request.getMethod().get());
                 map.get(request.getMessage()).handle(request, out);
-            }else {
+            } else {
                 badRequest(out);
             }
         } catch (IOException e) {
             e.printStackTrace();
-        } catch (ExecutionException | InterruptedException e) {
+        } catch (ExecutionException | InterruptedException | URISyntaxException e) {
             throw new RuntimeException(e);
         } finally {
             downService();
@@ -49,6 +51,7 @@ public class ClientSocket implements Runnable {
         } catch (IOException ignored) {
         }
     }
+
     private void badRequest(BufferedOutputStream out) throws IOException {
         out.write((
                 "HTTP/1.1 400 Bad Request\r\n" +

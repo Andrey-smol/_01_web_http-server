@@ -1,8 +1,13 @@
 package ru.netology;
 
+import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URLEncodedUtils;
+
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -10,14 +15,15 @@ import java.util.stream.Collectors;
 public class Request {
 
     private static final String SEPARATOR_INTO_REQUEST_LINE = " ";
+    private static final String SEPARATOR_STRING = "\r\n";
     private static final int NUMBER_ELEMENT_INTO_REQUEST_LINE = 3;
     private RequestMethods method;
     private Map<String, String> listHeaders = new HashMap<>();
 
     private String message;
+    private List<NameValuePair> listQueryParam = new ArrayList<>();
     private String body;
 
-    
 
     public RequestMethods getMethod() {
         return method;
@@ -51,44 +57,74 @@ public class Request {
         this.body = body;
     }
 
-    private boolean parsingRequestLine(String line){
+    public Optional<List<String>> getQueryParam(String name) {
+        if (listQueryParam == null || name == null || name.isEmpty()) {
+            return Optional.empty();
+        }
+        List<String> list = listQueryParam.stream()
+                .filter(p -> p.getName().equalsIgnoreCase(name))
+                .map(NameValuePair::getValue)
+                .toList();
+        if (list.size() > 0) {
+            return Optional.of(list);
+        }
+        return Optional.empty();
+    }
+
+    public Optional<List<NameValuePair>> getQueryParams() {
+        return listQueryParam == null ? Optional.empty() : Optional.of(listQueryParam);
+    }
+
+
+    private boolean parsingRequestLine(String line) throws URISyntaxException {
         var parts = line.split(SEPARATOR_INTO_REQUEST_LINE);
         if (parts.length != NUMBER_ELEMENT_INTO_REQUEST_LINE) {
             return false;
         }
         method = parts[0].transform(s -> {
-            for(var t: RequestMethods.values()){
-                if(t.get().equals(s)){
+            for (var t : RequestMethods.values()) {
+                if (t.get().equals(s)) {
                     return t;
                 }
             }
             return null;
         });
-        if(method == null){
+        if (method == null) {
             return false;
         }
-        message = parts[1];
+        var str = parts[1].split("\\?");
+        message = str[0];
         if (!message.startsWith("/")) {
             return false;
         }
+
+        if (str.length > 1) {
+            listQueryParam = URLEncodedUtils.parse(new URI(parts[1]), "UTF-8");
+            listQueryParam.forEach(System.out::println);
+        }
+
         System.out.println("***********************REQUEST_LINE********************");
         System.out.println(method + " " + message);
         return true;
     }
-    private boolean parsingHeaders(byte[] buffer, int startNumberByte, int endNumberByte){
+
+    private boolean parsingHeaders(byte[] buffer, int startNumberByte, int endNumberByte) {
         int len = endNumberByte - startNumberByte;
         byte[] buf = new byte[len];
         System.arraycopy(buffer, startNumberByte, buf, 0, endNumberByte - startNumberByte);
 
-        List<String> list = Arrays.asList(new String(buf).split("\r\n"));
+        List<String> list = Arrays.asList(new String(buf).split(SEPARATOR_STRING));
 
-        listHeaders = list.stream().map(s->s.split(":")).collect(Collectors.toMap(value->value[0], value->value[1]));
+        for (String str : list) {
+            int idx = str.indexOf(":");
+            listHeaders.put(str.substring(0, idx).trim(), str.substring(idx + 1).trim());
+        }
         System.out.println("***************HEADERS*****************");
-        listHeaders.forEach((key, value)->System.out.println(key + ":" + value));
+        listHeaders.forEach((key, value) -> System.out.println(key + ":" + value));
         return true;
     }
 
-    public boolean parseRequest(BufferedInputStream in) throws IOException {
+    public boolean parseRequest(BufferedInputStream in) throws IOException, URISyntaxException {
         // лимит на request line + заголовки
         final var limit = 4096;
         in.mark(limit);
@@ -98,7 +134,7 @@ public class Request {
         // ищем request line
         final var requestLineDelimiter = new byte[]{'\r', '\n'};
         final var requestLineEnd = indexOf(buffer, requestLineDelimiter, 0, length);
-        if (requestLineEnd == -1){
+        if (requestLineEnd == -1) {
             return false;
         }
         // читаем request line
@@ -113,18 +149,17 @@ public class Request {
         if (headersEnd == -1) {
             return false;
         }
-        if(!parsingHeaders(buffer, headersStart, headersEnd)) {
+        if (!parsingHeaders(buffer, headersStart, headersEnd)) {
             return false;
         }
 
         // для GET тела нет
-        if(method != RequestMethods.GET){
+        if (method != RequestMethods.GET) {
             // вычитываем Content-Length, чтобы прочитать body
             final var contentLength = extractHeader(listHeaders, "Content-Length");
             if (contentLength.isPresent()) {
                 // отматываем на начало буфера
                 in.reset();
-                System.out.println(headersEnd + headersDelimiter.length);
                 in.skip(headersEnd + headersDelimiter.length);
                 final var len = Integer.parseInt(contentLength.get());
                 final var bodyBytes = in.readNBytes(len);
@@ -136,11 +171,6 @@ public class Request {
         return true;
     }
 
-
-    public boolean parsingRequest(String request){
-        return true;
-
-    }
     // from google guava with modifications
     private int indexOf(byte[] array, byte[] target, int start, int max) {
         outer:
@@ -156,8 +186,8 @@ public class Request {
     }
 
     private Optional<String> extractHeader(Map<String, String> headers, String header) {
-        if(headers.containsKey(header)){
-            return Optional.of(headers.get(header).trim());
+        if (headers.containsKey(header)) {
+            return Optional.of(headers.get(header));
         }
         return Optional.empty();
     }
