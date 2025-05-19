@@ -16,6 +16,7 @@ public class ValidPathsStorage implements IValidPaths {
             "/app.js",
             "/links.html",
             "/forms.html",
+            "/forms_multipart.html",
             "/classic.html",
             "/events.html",
             "/events.js"));

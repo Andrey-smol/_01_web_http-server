@@ -1,18 +1,19 @@
 package ru.netology;
 
+import org.apache.commons.fileupload2.core.*;
+import org.apache.commons.fileupload2.javax.JavaxServletDiskFileUpload;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.lang.reflect.Type;
+
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+
 
 public class Request {
 
@@ -141,12 +142,139 @@ public class Request {
         return true;
     }
 
-    private void parsingBodyParams() {
+    private void parsingBodyParamsByMultipartInput(String contentType) throws IOException {
+        ByteArrayInputStream content = new ByteArrayInputStream(body.getBytes());
+        byte[] boundary = contentType.split("=")[1].trim().getBytes();
+        MultipartInput input = new MultipartInput.Builder()
+                .setInputStream(content)
+                .setBoundary(boundary)
+                .setBufferSize(512000000)
+                .get();
+        boolean nextPart = input.skipPreamble();
+        while (nextPart) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            String header = input.readHeaders().trim();
+
+            if (!header.contains("filename")) {
+                System.out.print("Headers: ");
+                System.out.print(header);
+                System.out.println();
+                System.out.print("Body: ");
+                input.readBodyData(out);
+                System.out.println(out);
+                listBodyParam.add(new NameValuePair() {
+                    @Override
+                    public String getName() {
+                        return header;
+                    }
+
+                    @Override
+                    public String getValue() {
+                        String value = out.toString().trim();
+                        if (value.charAt(0) == '=') {
+                            return value.substring(1).trim();
+                        }
+                        return value;
+                    }
+                });
+            } else {
+                Optional<String[]> list = Arrays.stream(header.split(";")).toList()
+                        .stream()
+                        .filter(s -> s.contains("filename"))
+                        .map(s -> s.split("="))
+                        .findFirst();
+                if (list.isPresent()) {
+                    String nameFile = list.get()[1].trim();
+                    int len = nameFile.length();
+                    int idx = nameFile.indexOf('"');
+                    nameFile = nameFile.substring(idx + 1);
+                    idx = nameFile.indexOf('"');
+                    nameFile = nameFile.substring(0, idx);
+                    if (nameFile != null) {
+                        try (OutputStream outputStream = new FileOutputStream("D:\\Java\\Projects_my\\_01_web_http-server\\files\\" + nameFile)) {
+                            input.readBodyData(outputStream);
+                        }
+                    }
+                }
+            }
+            System.out.println();
+            nextPart = input.readBoundary();
+            out.close();
+        }
+    }
+
+    private void parsingBodyParamsByFileItemFactory(String contentType) throws IOException {
+        ByteArrayInputStream content = new ByteArrayInputStream(body.getBytes());
+
+        DiskFileItemFactory factory = new DiskFileItemFactory.Builder().get();
+        JavaxServletDiskFileUpload diskFileUpload = new JavaxServletDiskFileUpload(factory);
+        diskFileUpload.setSizeMax(512000000);
+        List<DiskFileItem> list = diskFileUpload.parseRequest(new RequestContext() {
+            @Override
+            public String getCharacterEncoding() {
+                return StandardCharsets.UTF_8.name();
+            }
+
+            @Override
+            public long getContentLength() {
+                return body.length();
+            }
+
+            @Override
+            public String getContentType() {
+                return contentType;
+            }
+
+            @Override
+            public InputStream getInputStream() {
+                return content;
+            }
+        });
+        for (FileItem<DiskFileItem> item : list) {
+            System.out.println(item);
+            if (item.isFormField()) {
+                listBodyParam.add(new NameValuePair() {
+                    @Override
+                    public String getName() {
+                        return item.getFieldName();
+                    }
+
+                    @Override
+                    public String getValue() {
+                        return item.getString();
+                    }
+                });
+            } else {
+                String fieldName = item.getFieldName();
+                String fileName = item.getName();
+                String type = item.getContentType();
+                boolean isInMemory = item.isInMemory();
+                long sizeInBytes = item.getSize();
+                System.out.println(fieldName + "; " + fileName + "; " + sizeInBytes);
+                // Process a file upload
+                Path uploadedFile = Paths.get(".", "files", fileName);
+                item.write(uploadedFile);
+            }
+        }
+
+    }
+
+    private void parsingBodyParams() throws IOException {
         if (method == RequestMethods.POST) {
             Optional<String> op = extractHeader(listHeaders, CONTENT_TYPE);
             if (op.isPresent()) {
-                if (FormEnctype.APPLICATION.getEnctype().equalsIgnoreCase(op.get())) {
+                String contentType = op.get();
+                if (FormEnctype.APPLICATION.getEnctype().equalsIgnoreCase(contentType)) {
                     listBodyParam = URLEncodedUtils.parse(body, StandardCharsets.UTF_8);
+                } else if (FormEnctype.TEXT.getEnctype().equalsIgnoreCase(contentType)) {
+                    //to do
+                } else {
+                    if (contentType.contains(FormEnctype.MULTIPART.getEnctype())) {
+
+                        //parsingBodyParamsByFileItemFactory(contentType);
+                        parsingBodyParamsByMultipartInput(contentType);
+                        System.out.println("*************************************************");
+                    }
                 }
             }
         }
@@ -193,7 +321,6 @@ public class Request {
                 final var bodyBytes = in.readNBytes(len);
                 body = new String(bodyBytes);
                 System.out.println("****************BODY****************");
-                System.out.println(body);
                 parsingBodyParams();
             }
         }
