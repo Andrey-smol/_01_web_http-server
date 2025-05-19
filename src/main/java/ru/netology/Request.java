@@ -145,22 +145,22 @@ public class Request {
     private void parsingBodyParamsByMultipartInput(String contentType) throws IOException {
         ByteArrayInputStream content = new ByteArrayInputStream(body.getBytes());
         byte[] boundary = contentType.split("=")[1].trim().getBytes();
-        MultipartInput input = new MultipartInput.Builder()
+        MultipartInput multipartInput = new MultipartInput.Builder()
                 .setInputStream(content)
                 .setBoundary(boundary)
                 .setBufferSize(512000000)
                 .get();
-        boolean nextPart = input.skipPreamble();
+        boolean nextPart = multipartInput.skipPreamble();
         while (nextPart) {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            String header = input.readHeaders().trim();
+            String header = multipartInput.readHeaders().trim();
 
             if (!header.contains("filename")) {
                 System.out.print("Headers: ");
                 System.out.print(header);
                 System.out.println();
                 System.out.print("Body: ");
-                input.readBodyData(out);
+                multipartInput.readBodyData(out);
                 System.out.println(out);
                 listBodyParam.add(new NameValuePair() {
                     @Override
@@ -183,22 +183,25 @@ public class Request {
                         .filter(s -> s.contains("filename"))
                         .map(s -> s.split("="))
                         .findFirst();
-                if (list.isPresent()) {
+                if (list.isPresent() && list.get().length >= 2) {
                     String nameFile = list.get()[1].trim();
                     int len = nameFile.length();
                     int idx = nameFile.indexOf('"');
-                    nameFile = nameFile.substring(idx + 1);
-                    idx = nameFile.indexOf('"');
-                    nameFile = nameFile.substring(0, idx);
-                    if (nameFile != null) {
-                        try (OutputStream outputStream = new FileOutputStream("D:\\Java\\Projects_my\\_01_web_http-server\\files\\" + nameFile)) {
-                            input.readBodyData(outputStream);
+                    if (idx != -1) {
+                        nameFile = nameFile.substring(idx + 1);
+                        idx = nameFile.indexOf('"');
+                        if (idx != -1) {
+                            nameFile = nameFile.substring(0, idx);
                         }
+                    }
+                    try (OutputStream outputStream = new BufferedOutputStream(new FileOutputStream("files\\" + nameFile))) {
+                        multipartInput.readBodyData(outputStream);
+                        outputStream.flush();
                     }
                 }
             }
             System.out.println();
-            nextPart = input.readBoundary();
+            nextPart = multipartInput.readBoundary();
             out.close();
         }
     }
