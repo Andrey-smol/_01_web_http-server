@@ -11,7 +11,8 @@ public class HandlerShaper {
     public HandlerShaper(IValidPaths validPaths) {
         this.validPaths = validPaths;
     }
-    public IHandler getHandler(RequestMethods methods){
+
+    public IHandler getHandler(RequestMethods methods) {
 
         return (((request, out) -> {
             final var filePath = validPaths.getPathFile(request.getMessage()).get();
