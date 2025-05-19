@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -17,11 +19,14 @@ public class Request {
     private static final String SEPARATOR_INTO_REQUEST_LINE = " ";
     private static final String SEPARATOR_STRING = "\r\n";
     private static final int NUMBER_ELEMENT_INTO_REQUEST_LINE = 3;
+    private static final String CONTENT_TYPE = "Content-Type";
+    private static final String CONTENT_LENGTH = "Content-Length";
     private RequestMethods method;
     private Map<String, String> listHeaders = new HashMap<>();
 
     private String message;
     private List<NameValuePair> listQueryParam = new ArrayList<>();
+    private List<NameValuePair> listBodyParam = new ArrayList<>();
     private String body;
 
 
@@ -58,21 +63,33 @@ public class Request {
     }
 
     public Optional<List<String>> getQueryParam(String name) {
-        if (listQueryParam == null || name == null || name.isEmpty()) {
-            return Optional.empty();
-        }
-        List<String> list = listQueryParam.stream()
-                .filter(p -> p.getName().equalsIgnoreCase(name))
-                .map(NameValuePair::getValue)
-                .toList();
-        if (list.size() > 0) {
-            return Optional.of(list);
-        }
-        return Optional.empty();
+        return getParam(name, listQueryParam);
     }
 
     public Optional<List<NameValuePair>> getQueryParams() {
         return listQueryParam == null ? Optional.empty() : Optional.of(listQueryParam);
+    }
+
+    public Optional<List<String>> getBodyParam(String name) {
+        return getParam(name, listBodyParam);
+    }
+
+    private Optional<List<String>> getParam(String name, List<NameValuePair> list) {
+        if (list == null || name == null || name.isEmpty()) {
+            return Optional.empty();
+        }
+        List<String> l = list.stream()
+                .filter(p -> p.getName().equalsIgnoreCase(name))
+                .map(NameValuePair::getValue)
+                .toList();
+        if (list.size() > 0) {
+            return Optional.of(l);
+        }
+        return Optional.empty();
+    }
+
+    public Optional<List<NameValuePair>> getBodyParams() {
+        return listBodyParam == null ? Optional.empty() : Optional.of(listBodyParam);
     }
 
 
@@ -124,6 +141,17 @@ public class Request {
         return true;
     }
 
+    private void parsingBodyParams() {
+        if (method == RequestMethods.POST) {
+            Optional<String> op = extractHeader(listHeaders, CONTENT_TYPE);
+            if (op.isPresent()) {
+                if (FormEnctype.APPLICATION.getEnctype().equalsIgnoreCase(op.get())) {
+                    listBodyParam = URLEncodedUtils.parse(body, StandardCharsets.UTF_8);
+                }
+            }
+        }
+    }
+
     public boolean parseRequest(BufferedInputStream in) throws IOException, URISyntaxException {
         // лимит на request line + заголовки
         final var limit = 4096;
@@ -156,7 +184,7 @@ public class Request {
         // для GET тела нет
         if (method != RequestMethods.GET) {
             // вычитываем Content-Length, чтобы прочитать body
-            final var contentLength = extractHeader(listHeaders, "Content-Length");
+            final var contentLength = extractHeader(listHeaders, CONTENT_LENGTH);
             if (contentLength.isPresent()) {
                 // отматываем на начало буфера
                 in.reset();
@@ -166,8 +194,10 @@ public class Request {
                 body = new String(bodyBytes);
                 System.out.println("****************BODY****************");
                 System.out.println(body);
+                parsingBodyParams();
             }
         }
+        getDebugReadParams();
         return true;
     }
 
@@ -190,5 +220,22 @@ public class Request {
             return Optional.of(headers.get(header));
         }
         return Optional.empty();
+    }
+
+    private void getDebugReadParams() {
+        if (getQueryParams().isPresent()) {
+            System.out.println("QueryParams");
+            for (NameValuePair p : getQueryParams().get()) {
+                System.out.println(p.getName() + " = " + p.getValue());
+                System.out.println(getQueryParam(p.getName()).get());
+            }
+        }
+        if (getBodyParams().isPresent()) {
+            System.out.println("BodyParams");
+            for (NameValuePair p : getBodyParams().get()) {
+                System.out.println(p.getName() + " = " + p.getValue());
+                System.out.println(getBodyParam(p.getName()).get());
+            }
+        }
     }
 }
