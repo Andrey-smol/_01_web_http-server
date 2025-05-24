@@ -1,13 +1,13 @@
 package ru.netology.setting;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ValidPathsStorage implements IValidPaths {
     private static final String PATH_DIRECTORY = "public";
-    private final List<String> listPaths = new CopyOnWriteArrayList<>(List.of(
+    private final List<String> listPaths = new ArrayList<>(List.of(
             "/index.html",
             "/spring.svg",
             "/spring.png",

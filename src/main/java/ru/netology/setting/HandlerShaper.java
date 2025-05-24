@@ -15,7 +15,7 @@ public class HandlerShaper {
     public IHandler getHandler(RequestMethods methods) {
 
         return (((request, out) -> {
-            final var filePath = validPaths.getPathFile(request.getMessage()).get();
+            final var filePath = validPaths.getPathFile(request.getPath()).get();
             final var filesResources = CommonFilesResources.getInstance();
             final var type = filesResources.getTypeFile(filePath);
             final var len = filesResources.getLengthFile(filePath);
@@ -23,7 +23,7 @@ public class HandlerShaper {
                 final var mimeType = type.get();
                 final var length = len.getAsLong();
                 // special case for classic
-                if (request.getMessage().equals("/classic.html")) {
+                if (request.getPath().equals("/classic.html")) {
                     final var template = filesResources.getContentFile(filePath).get();
                     final var content = template.replace("{time}", LocalDateTime.now().toString()).getBytes();
                     out.write(getResponseHead(mimeType, content.length).getBytes());

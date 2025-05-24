@@ -25,10 +25,10 @@ public class Request {
     private RequestMethods method;
     private Map<String, String> listHeaders = new HashMap<>();
 
-    private String message;
+    private String path;
     private List<NameValuePair> listQueryParam = new ArrayList<>();
     private List<NameValuePair> listBodyParam = new ArrayList<>();
-    private String body;
+    private byte[] body;
 
 
     public RequestMethods getMethod() {
@@ -47,19 +47,19 @@ public class Request {
         this.listHeaders = listHeaders;
     }
 
-    public String getMessage() {
-        return message;
+    public String getPath() {
+        return path;
     }
 
-    public void setMessage(String message) {
-        this.message = message;
+    public void setMessage(String path) {
+        this.path = path;
     }
 
-    public String getBody() {
+    public byte[] getBody() {
         return body;
     }
 
-    public void setBody(String body) {
+    public void setBody(byte[] body) {
         this.body = body;
     }
 
@@ -111,8 +111,8 @@ public class Request {
             return false;
         }
         var str = parts[1].split("\\?");
-        message = str[0];
-        if (!message.startsWith("/")) {
+        path = str[0];
+        if (!path.startsWith("/")) {
             return false;
         }
 
@@ -122,7 +122,7 @@ public class Request {
         }
 
         System.out.println("***********************REQUEST_LINE********************");
-        System.out.println(method + " " + message);
+        System.out.println(method + " " + path);
         return true;
     }
 
@@ -143,7 +143,7 @@ public class Request {
     }
 
     private void parsingBodyParamsByMultipartInput(String contentType) throws IOException {
-        ByteArrayInputStream content = new ByteArrayInputStream(body.getBytes());
+        ByteArrayInputStream content = new ByteArrayInputStream(body);
         byte[] boundary = contentType.split("=")[1].trim().getBytes();
         MultipartInput multipartInput = new MultipartInput.Builder()
                 .setInputStream(content)
@@ -207,32 +207,11 @@ public class Request {
     }
 
     private void parsingBodyParamsByFileItemFactory(String contentType) throws IOException {
-        ByteArrayInputStream content = new ByteArrayInputStream(body.getBytes());
-
+        ByteArrayInputStream content = new ByteArrayInputStream(body);
         DiskFileItemFactory factory = new DiskFileItemFactory.Builder().get();
         JavaxServletDiskFileUpload diskFileUpload = new JavaxServletDiskFileUpload(factory);
         diskFileUpload.setSizeMax(512000000);
-        List<DiskFileItem> list = diskFileUpload.parseRequest(new RequestContext() {
-            @Override
-            public String getCharacterEncoding() {
-                return StandardCharsets.UTF_8.name();
-            }
-
-            @Override
-            public long getContentLength() {
-                return body.length();
-            }
-
-            @Override
-            public String getContentType() {
-                return contentType;
-            }
-
-            @Override
-            public InputStream getInputStream() {
-                return content;
-            }
-        });
+        List<DiskFileItem> list = diskFileUpload.parseRequest(new RequestContextImpl(body, contentType, content));
         for (FileItem<DiskFileItem> item : list) {
             System.out.println(item);
             if (item.isFormField()) {
@@ -241,7 +220,6 @@ public class Request {
                     public String getName() {
                         return item.getFieldName();
                     }
-
                     @Override
                     public String getValue() {
                         return item.getString();
@@ -268,14 +246,14 @@ public class Request {
             if (op.isPresent()) {
                 String contentType = op.get();
                 if (FormEnctype.APPLICATION.getEnctype().equalsIgnoreCase(contentType)) {
-                    listBodyParam = URLEncodedUtils.parse(body, StandardCharsets.UTF_8);
+                    listBodyParam = URLEncodedUtils.parse(new String(body), StandardCharsets.UTF_8);
                 } else if (FormEnctype.TEXT.getEnctype().equalsIgnoreCase(contentType)) {
                     //to do
                 } else {
                     if (contentType.contains(FormEnctype.MULTIPART.getEnctype())) {
 
-                        //parsingBodyParamsByFileItemFactory(contentType);
-                        parsingBodyParamsByMultipartInput(contentType);
+                        parsingBodyParamsByFileItemFactory(contentType);
+                        //parsingBodyParamsByMultipartInput(contentType);
                         System.out.println("*************************************************");
                     }
                 }
@@ -321,8 +299,7 @@ public class Request {
                 in.reset();
                 in.skip(headersEnd + headersDelimiter.length);
                 final var len = Integer.parseInt(contentLength.get());
-                final var bodyBytes = in.readNBytes(len);
-                body = new String(bodyBytes);
+                body = in.readNBytes(len);
                 System.out.println("****************BODY****************");
                 parsingBodyParams();
             }

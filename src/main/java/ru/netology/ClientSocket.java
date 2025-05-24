@@ -28,14 +28,29 @@ public class ClientSocket implements Runnable {
             Request request = new Request();
             if (request.parseRequest(in)) {
                 Map<String, IHandler> map = server.getHandlersByKey(request.getMethod().get());
-                map.get(request.getMessage()).handle(request, out);
+                if(map == null){
+                    notFound(out);
+                    downService();
+                    return;
+                }
+                IHandler handler = map.get(request.getPath());
+                if(handler == null){
+                    notFound(out);
+                    downService();
+                    return;
+                }
+
+                handler.handle(request, out);
             } else {
                 badRequest(out);
             }
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ExecutionException | InterruptedException | URISyntaxException e) {
-            throw new RuntimeException(e);
+            try {
+                internalServerError(out);
+            } catch (IOException ex) {
+            }
         } finally {
             downService();
         }
@@ -55,6 +70,26 @@ public class ClientSocket implements Runnable {
     private void badRequest(BufferedOutputStream out) throws IOException {
         out.write((
                 "HTTP/1.1 400 Bad Request\r\n" +
+                        "Content-Length: 0\r\n" +
+                        "Connection: close\r\n" +
+                        "\r\n"
+        ).getBytes());
+        out.flush();
+    }
+
+    private void notFound(BufferedOutputStream out) throws IOException {
+        out.write((
+                "HTTP/1.1 404 Not Found\r\n" +
+                        "Content-Length: 0\r\n" +
+                        "Connection: close\r\n" +
+                        "\r\n"
+        ).getBytes());
+        out.flush();
+    }
+
+    private void internalServerError(BufferedOutputStream out) throws IOException {
+        out.write((
+                "HTTP/1.1 500 Internal Server Error\r\n" +
                         "Content-Length: 0\r\n" +
                         "Connection: close\r\n" +
                         "\r\n"
