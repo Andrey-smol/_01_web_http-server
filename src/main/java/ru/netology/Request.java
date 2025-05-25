@@ -300,7 +300,6 @@ public class Request {
                 in.skip(headersEnd + headersDelimiter.length);
                 final var len = Integer.parseInt(contentLength.get());
                 body = in.readNBytes(len);
-                System.out.println("****************BODY****************");
                 parsingBodyParams();
             }
         }
